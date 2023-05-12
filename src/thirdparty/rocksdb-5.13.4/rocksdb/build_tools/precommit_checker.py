@@ -59,10 +59,11 @@ class Env(object):
             os.chdir(path)
 
         self.log.log("==== shell session ===========================")
-        self.log.log("%s> %s" % (path, cmd))
-        status = subprocess.call("cd %s; %s" % (path, cmd), shell=True,
-                                 stdout=self.log.f, stderr=self.log.f)
-        self.log.log("status = %s" % status)
+        self.log.log(f"{path}> {cmd}")
+        status = subprocess.call(
+            f"cd {path}; {cmd}", shell=True, stdout=self.log.f, stderr=self.log.f
+        )
+        self.log.log(f"status = {status}")
         self.log.log("============================================== \n\n")
         return status
 
@@ -71,10 +72,10 @@ class Env(object):
             os.chdir(path)
 
         self.log.log("==== shell session ===========================")
-        self.log.log("%s> %s" % (path, cmd))
+        self.log.log(f"{path}> {cmd}")
         status, out = commands.getstatusoutput(cmd)
-        self.log.log("status = %s" % status)
-        self.log.log("out = %s" % out)
+        self.log.log(f"status = {status}")
+        self.log.log(f"out = {out}")
         self.log.log("============================================== \n\n")
         return status, out
 
@@ -94,19 +95,20 @@ class PreCommitChecker(Env):
     #
     def get_commands(self, test):
         status, out = self.GetOutput(
-            "RATIO=1 build_tools/rocksdb-lego-determinator %s" % test, ".")
+            f"RATIO=1 build_tools/rocksdb-lego-determinator {test}", "."
+        )
         return status, out
 
     #
     # Run a specific CI job
     #
     def run_test(self, test):
-        self.log.caption("Running test %s locally" % test)
+        self.log.caption(f"Running test {test} locally")
 
         # get commands for the CI job determinator
         status, cmds = self.get_commands(test)
         if status != 0:
-            self.log.error("Error getting commands for test %s" % test)
+            self.log.error(f"Error getting commands for test {test}")
             return False
 
         # Parse the JSON to extract the commands to run
@@ -120,13 +122,12 @@ class PreCommitChecker(Env):
         for cmd in cmds:
             # Replace J=<..> with the local environment variable
             if "J" in os.environ:
-                cmd = cmd.replace("J=1", "J=%s" % os.environ["J"])
-                cmd = cmd.replace("make ", "make -j%s " % os.environ["J"])
+                cmd = cmd.replace("J=1", f'J={os.environ["J"]}')
+                cmd = cmd.replace("make ", f'make -j{os.environ["J"]} ')
             # Run the command
             status = self.shell(cmd, ".")
             if status != 0:
-                self.log.error("Error running command %s for test %s"
-                               % (cmd, test))
+                self.log.error(f"Error running command {cmd} for test {test}")
                 return False
 
         return True
@@ -150,7 +151,7 @@ class PreCommitChecker(Env):
             result = self.run_test(test)
             elapsed_min = (time.time() - start_time) / 60
             if not result:
-                self.log.error("Error running test %s" % test)
+                self.log.error(f"Error running test {test}")
                 self.print_result("FAIL (%dm)" % elapsed_min)
                 if not self.ignore_failure:
                     return False
@@ -171,7 +172,7 @@ class PreCommitChecker(Env):
     # Print two colums
     #
     def print_row(self, c0, c1):
-        print("%s%s" % (c0.ljust(40), c1.ljust(20)))
+        print(f"{c0.ljust(40)}{c1.ljust(20)}")
 
     def print_test(self, test):
         print(test.ljust(40), end="")
@@ -198,11 +199,10 @@ parser.add_argument('tests', nargs='+',
 args = parser.parse_args()
 checker = PreCommitChecker(args)
 
-print("Please follow log %s" % checker.log.filename)
+print(f"Please follow log {checker.log.filename}")
 
 if not checker.run_tests():
-    print("Error running tests. Please check log file %s"
-          % checker.log.filename)
+    print(f"Error running tests. Please check log file {checker.log.filename}")
     sys.exit(1)
 
 sys.exit(0)

@@ -14,19 +14,14 @@ def parse_gcov_report(gcov_input):
     for line in sys.stdin:
         line = line.strip()
 
-        # --First line of the coverage report (with file name in it)?
-        match_obj = re.match("^File '(.*)'$", line)
-        if match_obj:
+        if match_obj := re.match("^File '(.*)'$", line):
             # fetch the file name from the first line of the report.
-            current_file = match_obj.group(1)
+            current_file = match_obj[1]
             continue
 
-        # -- Second line of the file report (with coverage percentage)
-        match_obj = re.match("^Lines executed:(.*)% of (.*)", line)
-
-        if match_obj:
-            coverage = float(match_obj.group(1))
-            lines = int(match_obj.group(2))
+        if match_obj := re.match("^Lines executed:(.*)% of (.*)", line):
+            coverage = float(match_obj[1])
+            lines = int(match_obj[2])
 
             if current_file is not None:
                 per_file_coverage[current_file] = (coverage, lines)

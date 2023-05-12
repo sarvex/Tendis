@@ -18,8 +18,7 @@ def my_check_output(*popenargs, **kwargs):
     process = subprocess.Popen(stderr=subprocess.PIPE, stdout=subprocess.PIPE,
                                *popenargs, **kwargs)
     output, unused_err = process.communicate()
-    retcode = process.poll()
-    if retcode:
+    if retcode := process.poll():
         cmd = kwargs.get("args")
         if cmd is None:
             cmd = popenargs[0]
@@ -28,7 +27,7 @@ def my_check_output(*popenargs, **kwargs):
     return output
 
 def run_err_null(cmd):
-    return os.system(cmd + " 2>/dev/null ")
+    return os.system(f"{cmd} 2>/dev/null ")
 
 class LDBTestCase(unittest.TestCase):
     def setUp(self):
@@ -36,14 +35,12 @@ class LDBTestCase(unittest.TestCase):
         self.DB_NAME = "testdb"
 
     def tearDown(self):
-        assert(self.TMP_DIR.strip() != "/"
-                and self.TMP_DIR.strip() != "/tmp"
-                and self.TMP_DIR.strip() != "/tmp/") #Just some paranoia
+        assert self.TMP_DIR.strip() not in ["/", "/tmp", "/tmp/"]
 
         shutil.rmtree(self.TMP_DIR)
 
     def dbParam(self, dbName):
-        return "--db=%s" % os.path.join(self.TMP_DIR, dbName)
+        return f"--db={os.path.join(self.TMP_DIR, dbName)}"
 
     def assertRunOKFull(self, params, expectedOutput, unexpected=False,
                         isPattern=False):
@@ -54,17 +51,17 @@ class LDBTestCase(unittest.TestCase):
         """
         output = my_check_output("./ldb %s |grep -v \"Created bg thread\"" %
                             params, shell=True)
-        if not unexpected:
-            if isPattern:
-                self.assertNotEqual(expectedOutput.search(output.strip()),
-                                    None)
-            else:
-                self.assertEqual(output.strip(), expectedOutput.strip())
-        else:
+        if unexpected:
             if isPattern:
                 self.assertEqual(expectedOutput.search(output.strip()), None)
             else:
                 self.assertNotEqual(output.strip(), expectedOutput.strip())
+
+        elif isPattern:
+            self.assertNotEqual(expectedOutput.search(output.strip()),
+                                None)
+        else:
+            self.assertEqual(output.strip(), expectedOutput.strip())
 
     def assertRunFAILFull(self, params):
         """
@@ -87,14 +84,15 @@ class LDBTestCase(unittest.TestCase):
         Uses the default test db.
 
         """
-        self.assertRunOKFull("%s %s" % (self.dbParam(self.DB_NAME), params),
-                             expectedOutput, unexpected)
+        self.assertRunOKFull(
+            f"{self.dbParam(self.DB_NAME)} {params}", expectedOutput, unexpected
+        )
 
     def assertRunFAIL(self, params):
         """
         Uses the default test db.
         """
-        self.assertRunFAILFull("%s %s" % (self.dbParam(self.DB_NAME), params))
+        self.assertRunFAILFull(f"{self.dbParam(self.DB_NAME)} {params}")
 
     def testSimpleStringPutGet(self):
         print "Running testSimpleStringPutGet..."
@@ -141,10 +139,10 @@ class LDBTestCase(unittest.TestCase):
         self.assertRunOK("checkconsistency", "OK")
 
     def dumpDb(self, params, dumpFile):
-        return 0 == run_err_null("./ldb dump %s > %s" % (params, dumpFile))
+        return run_err_null(f"./ldb dump {params} > {dumpFile}") == 0
 
     def loadDb(self, params, dumpFile):
-        return 0 == run_err_null("cat %s | ./ldb load %s" % (dumpFile, params))
+        return run_err_null(f"cat {dumpFile} | ./ldb load {params}") == 0
 
     def testStringBatchPut(self):
         print "Running testStringBatchPut..."
@@ -400,8 +398,7 @@ class LDBTestCase(unittest.TestCase):
         self.assertRunFAIL("checkconsistency")
 
     def dumpLiveFiles(self, params, dumpFile):
-        return 0 == run_err_null("./ldb dump_live_files %s > %s" % (
-            params, dumpFile))
+        return run_err_null(f"./ldb dump_live_files {params} > {dumpFile}") == 0
 
     def testDumpLiveFiles(self):
         print "Running testDumpLiveFiles..."
@@ -417,16 +414,16 @@ class LDBTestCase(unittest.TestCase):
         self.assertTrue(self.dumpLiveFiles("--db=%s" % dbPath, dumpFilePath))
 
     def getManifests(self, directory):
-        return glob.glob(directory + "/MANIFEST-*")
+        return glob.glob(f"{directory}/MANIFEST-*")
 
     def getSSTFiles(self, directory):
-        return glob.glob(directory + "/*.sst")
+        return glob.glob(f"{directory}/*.sst")
 
     def getWALFiles(self, directory):
-        return glob.glob(directory + "/*.log")
+        return glob.glob(f"{directory}/*.log")
 
     def copyManifests(self, src, dest):
-        return 0 == run_err_null("cp " + src + " " + dest)
+        return run_err_null(f"cp {src} {dest}") == 0
 
     def testManifestDump(self):
         print "Running testManifestDump..."

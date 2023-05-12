@@ -56,9 +56,9 @@ default_params = {
 def get_dbname(test_name):
     test_tmpdir = os.environ.get("TEST_TMPDIR")
     if test_tmpdir is None or test_tmpdir == "":
-        dbname = tempfile.mkdtemp(prefix='rocksdb_crashtest_' + test_name)
+        dbname = tempfile.mkdtemp(prefix=f'rocksdb_crashtest_{test_name}')
     else:
-        dbname = test_tmpdir + "/rocksdb_crashtest_" + test_name
+        dbname = f"{test_tmpdir}/rocksdb_crashtest_{test_name}"
         shutil.rmtree(dbname, True)
     return dbname
 
@@ -148,17 +148,17 @@ def gen_cmd_params(args):
     params = {}
 
     if args.simple:
-        params.update(simple_default_params)
+        params |= simple_default_params
         if args.test_type == 'blackbox':
             params.update(blackbox_simple_default_params)
-        if args.test_type == 'whitebox':
+        elif args.test_type == 'whitebox':
             params.update(whitebox_simple_default_params)
 
     if not args.simple:
         params.update(default_params)
         if args.test_type == 'blackbox':
             params.update(blackbox_default_params)
-        if args.test_type == 'whitebox':
+        elif args.test_type == 'whitebox':
             params.update(whitebox_default_params)
 
     for k, v in vars(args).items():
@@ -168,13 +168,19 @@ def gen_cmd_params(args):
 
 
 def gen_cmd(params):
-    cmd = ['./db_stress'] + [
+    return ['./db_stress'] + [
         '--{0}={1}'.format(k, v)
         for k, v in finalize_and_sanitize(params).items()
-        if k not in set(['test_type', 'simple', 'duration', 'interval',
-                         'random_kill_odd'])
-        and v is not None]
-    return cmd
+        if k
+        not in {
+            'test_type',
+            'simple',
+            'duration',
+            'interval',
+            'random_kill_odd',
+        }
+        and v is not None
+    ]
 
 
 # This script runs and kills db_stress multiple times. It checks consistency
@@ -212,23 +218,22 @@ def blackbox_crash_main(args):
             time.sleep(1)
 
         if not stop_early:
-            if child.poll() is not None:
-                print("WARNING: db_stress ended before kill: exitcode=%d\n"
-                      % child.returncode)
-            else:
+            if child.poll() is None:
                 child.kill()
                 print("KILLED %d\n" % child.pid)
                 time.sleep(1)  # time to stabilize after a kill
 
+            else:
+                print("WARNING: db_stress ended before kill: exitcode=%d\n"
+                      % child.returncode)
         while True:
             line = child.stderr.readline().strip()
-            if line != '' and not line.startswith('WARNING'):
-                run_had_errors = True
-                print('stderr has error message:')
-                print('***' + line + '***')
-            else:
+            if line == '' or line.startswith('WARNING'):
                 break
 
+            run_had_errors = True
+            print('stderr has error message:')
+            print(f'***{line}***')
         if run_had_errors:
             sys.exit(2)
 
@@ -377,7 +382,7 @@ def main():
                       + whitebox_simple_default_params.items())
 
     for k, v in all_params.items():
-        parser.add_argument("--" + k, type=type(v() if callable(v) else v))
+        parser.add_argument(f"--{k}", type=type(v() if callable(v) else v))
     args = parser.parse_args()
 
     if args.test_type == 'blackbox':

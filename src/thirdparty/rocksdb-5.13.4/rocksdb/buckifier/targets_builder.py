@@ -48,13 +48,12 @@ class TARGETSBuilder:
         self.total_bin = self.total_bin + 1
 
     def register_test(self, test_name, src, is_parallel):
-        exec_mode = "serial"
-        if is_parallel:
-            exec_mode = "parallel"
+        exec_mode = "parallel" if is_parallel else "serial"
         self.tests_cfg += targets_cfg.test_cfg_template % (
             test_name,
             str(src),
-            str(exec_mode))
+            exec_mode,
+        )
 
         self.total_test = self.total_test + 1
 

@@ -18,7 +18,7 @@ _EXPORTED_TEST_LIBS = ["env_basic_test"]
 # Parse src.mk files as a Dictionary of
 # VAR_NAME => list of files
 def parse_src_mk(repo_path):
-    src_mk = repo_path + "/src.mk"
+    src_mk = f"{repo_path}/src.mk"
     src_files = {}
     for line in open(src_mk):
         line = line.strip()
@@ -41,16 +41,20 @@ def get_cc_files(repo_path):
         if "java" in root:
             # Skip java
             continue
-        for filename in fnmatch.filter(filenames, '*.cc'):
-            cc_files.append(os.path.join(root, filename))
-        for filename in fnmatch.filter(filenames, '*.c'):
-            cc_files.append(os.path.join(root, filename))
+        cc_files.extend(
+            os.path.join(root, filename)
+            for filename in fnmatch.filter(filenames, '*.cc')
+        )
+        cc_files.extend(
+            os.path.join(root, filename)
+            for filename in fnmatch.filter(filenames, '*.c')
+        )
     return cc_files
 
 
 # Get tests from Makefile
 def get_tests(repo_path):
-    Makefile = repo_path + "/Makefile"
+    Makefile = f"{repo_path}/Makefile"
 
     # Dictionary TEST_NAME => IS_PARALLEL
     tests = {}
@@ -61,15 +65,14 @@ def get_tests(repo_path):
         if line.startswith("TESTS ="):
             found_tests = True
         elif found_tests:
-            if line.endswith("\\"):
-                # remove the trailing \
-                line = line[:-1]
-                line = line.strip()
-                tests[line] = False
-            else:
+            if not line.endswith("\\"):
                 # we consumed all the tests
                 break
 
+            # remove the trailing \
+            line = line[:-1]
+            line = line.strip()
+            tests[line] = False
     found_parallel_tests = False
     for line in open(Makefile):
         line = line.strip()
@@ -84,7 +87,7 @@ def get_tests(repo_path):
             else:
                 # we consumed all the parallel tests
                 break
-    
+
     return tests
 
 
@@ -101,7 +104,7 @@ def generate_targets(repo_path):
     if src_mk is None or cc_files is None or tests is None:
         return False
 
-    TARGETS = TARGETSBuilder("%s/TARGETS" % repo_path)
+    TARGETS = TARGETSBuilder(f"{repo_path}/TARGETS")
     # rocksdb_lib
     TARGETS.add_library(
         "rocksdb_lib",
@@ -123,12 +126,12 @@ def generate_targets(repo_path):
 
     # test for every test we found in the Makefile
     for test in sorted(tests):
-        match_src = [src for src in cc_files if ("/%s.c" % test) in src]
-        if len(match_src) == 0:
-            print(ColorString.warning("Cannot find .cc file for %s" % test))
+        match_src = [src for src in cc_files if f"/{test}.c" in src]
+        if not match_src:
+            print(ColorString.warning(f"Cannot find .cc file for {test}"))
             continue
         elif len(match_src) > 1:
-            print(ColorString.warning("Found more than one .cc for %s" % test))
+            print(ColorString.warning(f"Found more than one .cc for {test}"))
             print(match_src)
             continue
 
@@ -137,7 +140,7 @@ def generate_targets(repo_path):
         TARGETS.register_test(test, match_src[0], is_parallel)
 
         if test in _EXPORTED_TEST_LIBS:
-            test_library = "%s_lib" % test
+            test_library = f"{test}_lib"
             TARGETS.add_library(test_library, match_src, [":rocksdb_test_lib"])
     TARGETS.flush_tests()
 
@@ -152,10 +155,7 @@ def get_rocksdb_path():
     # rocksdb = {script_dir}/..
     script_dir = os.path.dirname(sys.argv[0])
     script_dir = os.path.abspath(script_dir)
-    rocksdb_path = os.path.abspath(
-        os.path.join(script_dir, "../"))
-
-    return rocksdb_path
+    return os.path.abspath(os.path.join(script_dir, "../"))
 
 def exit_with_error(msg):
     print(ColorString.error(msg))
